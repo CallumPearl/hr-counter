@@ -180,7 +180,8 @@
     #report-btn:active { transform: scale(0.97); }
 
     /* --- Dialog Overlay --- */
-    #dialog-overlay {
+    #dialog-overlay,
+    #delete-overlay {
       display: none;
       position: fixed;
       inset: 0;
@@ -190,11 +191,12 @@
       align-items: center;
     }
 
-    #dialog-overlay.active {
+    #dialog-overlay.active,
+    #delete-overlay.active {
       display: flex;
     }
 
-    #dialog-box {
+    #dialog-box, .dialog-box {
       background: #1a1a1a;
       border: 2px solid #333;
       border-radius: 16px;
@@ -203,7 +205,7 @@
       max-width: 480px;
     }
 
-    #dialog-box h2 {
+    #dialog-box h2, .dialog-box h2 {
       color: #ff4444;
       margin-bottom: 1rem;
       font-size: 1.2rem;
@@ -274,12 +276,36 @@
       border: 1px solid #2a2a2a;
       border-radius: 12px;
       padding: 1.25rem 1.5rem;
+      position: relative;
+    }
+
+    .incident-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
     }
 
     .incident-date {
       font-size: 0.8rem;
       color: #666;
-      margin-bottom: 0.5rem;
+    }
+
+    .delete-btn {
+      background: none;
+      border: 1px solid #444;
+      color: #888;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .delete-btn:hover {
+      border-color: #ff4444;
+      color: #ff4444;
+      background: rgba(255, 68, 68, 0.1);
     }
 
     .incident-text {
@@ -383,7 +409,7 @@
     </div>
   </div>
 
-  <!-- Dialog -->
+  <!-- Report Dialog -->
   <div id="dialog-overlay">
     <div id="dialog-box">
       <h2>Report HR Incident</h2>
@@ -391,6 +417,20 @@
       <div class="dialog-actions">
         <button id="dialog-cancel">Cancel</button>
         <button id="dialog-submit">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Dialog -->
+  <div id="delete-overlay">
+    <div class="dialog-box">
+      <h2>Delete Incident</h2>
+      <p style="color:#999; margin-bottom:1rem;">Enter admin password to delete this incident.</p>
+      <input type="password" id="admin-password-input" placeholder="Admin password" autocomplete="off"
+        style="width:100%; padding:0.75rem; font-size:1rem; border:2px solid #333; border-radius:8px; background:#0f0f0f; color:#e0e0e0; outline:none;" />
+      <div class="dialog-actions">
+        <button id="delete-cancel">Cancel</button>
+        <button id="delete-confirm" style="background:#ff4444; color:white;">Delete</button>
       </div>
     </div>
   </div>
@@ -511,7 +551,10 @@
       for (let i = 0; i < incidents.length; i++) {
         const inc = incidents[i];
         html += `<div class="incident-card">
-          <div class="incident-date">${formatDate(inc.timestamp)}</div>
+          <div class="incident-header">
+            <div class="incident-date">${formatDate(inc.timestamp)}</div>
+            <button class="delete-btn" data-id="${escapeHtml(inc.id)}" onclick="promptDelete(this.dataset.id)">Delete</button>
+          </div>
           <div class="incident-text">${escapeHtml(inc.description)}</div>
         </div>`;
 
@@ -551,6 +594,65 @@
       if (e.target === overlay) overlay.classList.remove('active');
     });
 
+    // --- Delete Dialog ---
+    const deleteOverlay = document.getElementById('delete-overlay');
+    const adminPwInput = document.getElementById('admin-password-input');
+    let deleteTargetId = null;
+
+    function promptDelete(id) {
+      deleteTargetId = id;
+      adminPwInput.value = '';
+      deleteOverlay.classList.add('active');
+      adminPwInput.focus();
+    }
+
+    document.getElementById('delete-cancel').addEventListener('click', () => {
+      deleteOverlay.classList.remove('active');
+      deleteTargetId = null;
+    });
+
+    deleteOverlay.addEventListener('click', (e) => {
+      if (e.target === deleteOverlay) {
+        deleteOverlay.classList.remove('active');
+        deleteTargetId = null;
+      }
+    });
+
+    document.getElementById('delete-confirm').addEventListener('click', async () => {
+      const pw = adminPwInput.value;
+      if (!pw) { adminPwInput.focus(); return; }
+
+      const confirmBtn = document.getElementById('delete-confirm');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Deleting...';
+
+      try {
+        const res = await fetch('/api/incidents', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + sessionToken
+          },
+          body: JSON.stringify({ id: deleteTargetId, admin_password: pw })
+        });
+
+        if (res.ok) {
+          deleteOverlay.classList.remove('active');
+          deleteTargetId = null;
+          loadIncidents();
+        } else {
+          const data = await res.json();
+          alert(data.error || 'Failed to delete.');
+        }
+      } catch {
+        alert('Connection error. Try again.');
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Delete';
+      }
+    });
+
+    // --- Report Dialog Submit ---
     document.getElementById('dialog-submit').addEventListener('click', async () => {
       const desc = textarea.value.trim();
       if (!desc) {
