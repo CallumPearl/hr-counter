@@ -5,4 +5,4 @@ pages_build_output_dir = "public"
 
 [[kv_namespaces]]
 binding = "INCIDENTS"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "dd176d0e27074683ba08e97a105bf1ae"
