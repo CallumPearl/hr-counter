@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Podcrash HR Incident Tracker</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* --- Login Screen --- */
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    #login-screen h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1.5rem;
+      color: #ff4444;
+    }
+
+    #login-screen form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    #login-screen input[type="password"] {
+      padding: 0.75rem 1.25rem;
+      font-size: 1rem;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      width: 280px;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #login-screen input[type="password"]:focus {
+      border-color: #ff4444;
+    }
+
+    #login-screen button {
+      padding: 0.75rem 2rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #ff4444;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    #login-screen button:hover { background: #cc3333; }
+
+    #login-error {
+      color: #ff4444;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      min-height: 1.4rem;
+    }
+
+    /* --- Main App --- */
+    #app {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 700px;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      color: #ff4444;
+      margin-bottom: 0.25rem;
+    }
+
+    header p {
+      font-size: 0.95rem;
+      color: #888;
+    }
+
+    /* --- Timer --- */
+    #timer-section {
+      background: #1a1a1a;
+      border: 2px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      width: 100%;
+      margin-bottom: 2rem;
+    }
+
+    #timer-label {
+      font-size: 1rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 1rem;
+    }
+
+    #timer {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .timer-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 80px;
+    }
+
+    .timer-value {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: #ff4444;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-label {
+      font-size: 0.75rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 0.4rem;
+    }
+
+    #no-incidents-msg {
+      color: #666;
+      font-style: italic;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+
+    /* --- Report Button --- */
+    #report-btn {
+      padding: 1rem 2.5rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      background: #ff4444;
+      color: white;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-bottom: 2.5rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #report-btn:hover { background: #cc3333; }
+    #report-btn:active { transform: scale(0.97); }
+
+    /* --- Dialog Overlay --- */
+    #dialog-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #dialog-overlay.active {
+      display: flex;
+    }
+
+    #dialog-box {
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 16px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 480px;
+    }
+
+    #dialog-box h2 {
+      color: #ff4444;
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+    }
+
+    #dialog-box textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-family: inherit;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #dialog-box textarea:focus { border-color: #ff4444; }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .dialog-actions button {
+      padding: 0.6rem 1.5rem;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    #dialog-cancel {
+      background: #333;
+      color: #ccc;
+    }
+    #dialog-cancel:hover { background: #444; }
+
+    #dialog-submit {
+      background: #ff4444;
+      color: white;
+    }
+    #dialog-submit:hover { background: #cc3333; }
+
+    /* --- Incident List --- */
+    #incidents-section {
+      width: 100%;
+    }
+
+    #incidents-section h2 {
+      font-size: 1.1rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .incident-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .incident-date {
+      font-size: 0.8rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+
+    .incident-text {
+      font-size: 1rem;
+      color: #ccc;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .gap-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem 0;
+      color: #555;
+      font-size: 0.85rem;
+      position: relative;
+    }
+
+    .gap-indicator::before,
+    .gap-indicator::after {
+      content: '';
+      width: 2px;
+      height: 16px;
+      background: #2a2a2a;
+    }
+
+    .gap-duration {
+      padding: 0.3rem 0.8rem;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 20px;
+      margin: 0.3rem 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #empty-list {
+      text-align: center;
+      color: #555;
+      font-style: italic;
+      padding: 2rem;
+    }
+
+    @media (max-width: 480px) {
+      .timer-value { font-size: 2.5rem; }
+      .timer-unit { min-width: 65px; }
+      #timer { gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <h1>Podcrash HR Incident Tracker</h1>
+    <form id="login-form">
+      <input type="password" id="password-input" placeholder="Enter password" autocomplete="off" />
+      <button type="submit">Enter</button>
+      <div id="login-error"></div>
+    </form>
+  </div>
+
+  <!-- Main App (hidden until authenticated) -->
+  <div id="app">
+    <header>
+      <h1>Podcrash HR Incident Tracker</h1>
+      <p>Time since last incident</p>
+    </header>
+
+    <div id="timer-section">
+      <div id="timer-label">It has been</div>
+      <div id="timer">
+        <div class="timer-unit">
+          <span class="timer-value" id="t-days">0</span>
+          <span class="timer-label">Days</span>
+        </div>
+        <div class="timer-unit">
+          <span class="timer-value" id="t-hours">00</span>
+          <span class="timer-label">Hours</span>
+        </div>
+        <div class="timer-unit">
+          <span class="timer-value" id="t-minutes">00</span>
+          <span class="timer-label">Minutes</span>
+        </div>
+        <div class="timer-unit">
+          <span class="timer-value" id="t-seconds">00</span>
+          <span class="timer-label">Seconds</span>
+        </div>
+      </div>
+      <div id="no-incidents-msg" style="display:none;">No incidents recorded yet. The timer starts now!</div>
+    </div>
+
+    <button id="report-btn">Report an Incident</button>
+
+    <div id="incidents-section">
+      <h2>Incident Log</h2>
+      <div id="incidents-list">
+        <div id="empty-list">No incidents recorded yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dialog -->
+  <div id="dialog-overlay">
+    <div id="dialog-box">
+      <h2>Report HR Incident</h2>
+      <textarea id="incident-description" placeholder="Describe what happened..."></textarea>
+      <div class="dialog-actions">
+        <button id="dialog-cancel">Cancel</button>
+        <button id="dialog-submit">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let sessionToken = null;
+
+    // --- Login ---
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pw = document.getElementById('password-input').value;
+      const errEl = document.getElementById('login-error');
+      errEl.textContent = '';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw })
+        });
+        const data = await res.json();
+        if (res.ok && data.token) {
+          sessionToken = data.token;
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('app').style.display = 'flex';
+          loadIncidents();
+        } else {
+          errEl.textContent = data.error || 'Wrong password.';
+        }
+      } catch {
+        errEl.textContent = 'Connection error. Try again.';
+      }
+    });
+
+    // --- Timer ---
+    let lastIncidentTime = null;
+    let timerInterval = null;
+
+    function startTimer(sinceMs) {
+      lastIncidentTime = sinceMs;
+      if (timerInterval) clearInterval(timerInterval);
+      updateTimer();
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function updateTimer() {
+      const now = Date.now();
+      let diff = Math.max(0, Math.floor((now - lastIncidentTime) / 1000));
+
+      const days = Math.floor(diff / 86400);
+      diff %= 86400;
+      const hours = Math.floor(diff / 3600);
+      diff %= 3600;
+      const minutes = Math.floor(diff / 60);
+      const seconds = diff % 60;
+
+      document.getElementById('t-days').textContent = days;
+      document.getElementById('t-hours').textContent = String(hours).padStart(2, '0');
+      document.getElementById('t-minutes').textContent = String(minutes).padStart(2, '0');
+      document.getElementById('t-seconds').textContent = String(seconds).padStart(2, '0');
+    }
+
+    // --- Load Incidents ---
+    async function loadIncidents() {
+      try {
+        const res = await fetch('/api/incidents', {
+          headers: { 'Authorization': 'Bearer ' + sessionToken }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        renderIncidents(data.incidents);
+      } catch (err) {
+        console.error('Failed to load incidents', err);
+      }
+    }
+
+    function formatDate(ts) {
+      const d = new Date(ts);
+      return d.toLocaleDateString('en-US', {
+        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function formatDuration(ms) {
+      let s = Math.max(0, Math.floor(ms / 1000));
+      const days = Math.floor(s / 86400); s %= 86400;
+      const hours = Math.floor(s / 3600); s %= 3600;
+      const minutes = Math.floor(s / 60);
+      const seconds = s % 60;
+
+      const parts = [];
+      if (days > 0) parts.push(days + 'd');
+      if (hours > 0) parts.push(hours + 'h');
+      if (minutes > 0) parts.push(minutes + 'm');
+      parts.push(seconds + 's');
+      return parts.join(' ');
+    }
+
+    function renderIncidents(incidents) {
+      const list = document.getElementById('incidents-list');
+      const noMsg = document.getElementById('no-incidents-msg');
+
+      if (!incidents || incidents.length === 0) {
+        list.innerHTML = '<div id="empty-list">No incidents recorded yet.</div>';
+        noMsg.style.display = 'block';
+        // Timer counts from page load if no incidents
+        startTimer(Date.now());
+        return;
+      }
+
+      noMsg.style.display = 'none';
+
+      // incidents are sorted latest first
+      startTimer(incidents[0].timestamp);
+
+      let html = '';
+      for (let i = 0; i < incidents.length; i++) {
+        const inc = incidents[i];
+        html += `<div class="incident-card">
+          <div class="incident-date">${formatDate(inc.timestamp)}</div>
+          <div class="incident-text">${escapeHtml(inc.description)}</div>
+        </div>`;
+
+        // Show gap between this and the next (older) incident
+        if (i < incidents.length - 1) {
+          const gap = inc.timestamp - incidents[i + 1].timestamp;
+          html += `<div class="gap-indicator">
+            <div class="gap-duration">${formatDuration(gap)} without incident</div>
+          </div>`;
+        }
+      }
+
+      list.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // --- Report Dialog ---
+    const overlay = document.getElementById('dialog-overlay');
+    const textarea = document.getElementById('incident-description');
+
+    document.getElementById('report-btn').addEventListener('click', () => {
+      textarea.value = '';
+      overlay.classList.add('active');
+      textarea.focus();
+    });
+
+    document.getElementById('dialog-cancel').addEventListener('click', () => {
+      overlay.classList.remove('active');
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('active');
+    });
+
+    document.getElementById('dialog-submit').addEventListener('click', async () => {
+      const desc = textarea.value.trim();
+      if (!desc) {
+        textarea.focus();
+        return;
+      }
+
+      document.getElementById('dialog-submit').disabled = true;
+      document.getElementById('dialog-submit').textContent = 'Submitting...';
+
+      try {
+        const res = await fetch('/api/incidents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + sessionToken
+          },
+          body: JSON.stringify({ description: desc })
+        });
+
+        if (res.ok) {
+          overlay.classList.remove('active');
+          loadIncidents();
+        } else {
+          const data = await res.json();
+          alert(data.error || 'Failed to submit. Try again.');
+        }
+      } catch {
+        alert('Connection error. Try again.');
+      } finally {
+        document.getElementById('dialog-submit').disabled = false;
+        document.getElementById('dialog-submit').textContent = 'Submit';
+      }
+    });
+  </script>
+</body>
+</html>
