@@ -44,6 +44,10 @@ const SAFE_WORDS = new Set([
   'Furthermore', 'Moreover', 'Therefore', 'Meanwhile', 'Regarding',
   'Someone', 'Everyone', 'Anyone', 'Nobody', 'Somebody', 'Everybody',
   'Something', 'Everything', 'Anything', 'Nothing',
+  // Gender-neutral replacement words (so they aren't redacted as names)
+  'Them', 'Theirs', 'Themself', 'Themselves',
+  'Person', 'People', 'Child', 'Children', 'Parent', 'Sibling',
+  'Spouse', 'Partner', 'Monarch', 'Royal', 'Friend', 'Mx',
 ]);
 
 function redactNames(text) {
@@ -64,6 +68,58 @@ function redactNames(text) {
   });
 }
 
+// Gendered word → gender-neutral replacement
+const GENDER_MAP = {
+  // Pronouns
+  'he': 'they', 'him': 'them', 'his': 'their',
+  'she': 'they', 'her': 'their', 'hers': 'theirs',
+  'himself': 'themself', 'herself': 'themself',
+  // People
+  'man': 'person', 'woman': 'person',
+  'men': 'people', 'women': 'people',
+  'boy': 'child', 'girl': 'child',
+  'boys': 'children', 'girls': 'children',
+  'guy': 'person', 'guys': 'people',
+  'gentleman': 'person', 'lady': 'person',
+  'gentlemen': 'people', 'ladies': 'people',
+  // Titles
+  'mr': 'Mx', 'mrs': 'Mx', 'ms': 'Mx', 'miss': 'Mx',
+  'sir': 'friend', 'madam': 'friend',
+  // Family
+  'father': 'parent', 'mother': 'parent',
+  'dad': 'parent', 'mom': 'parent', 'mum': 'parent',
+  'son': 'child', 'daughter': 'child',
+  'brother': 'sibling', 'sister': 'sibling',
+  'husband': 'spouse', 'wife': 'spouse',
+  'boyfriend': 'partner', 'girlfriend': 'partner',
+  // Royalty
+  'king': 'monarch', 'queen': 'monarch',
+  'prince': 'royal', 'princess': 'royal',
+};
+
+function matchCase(original, replacement) {
+  if (original === original.toUpperCase()) return replacement.toUpperCase();
+  if (original[0] === original[0].toUpperCase()) {
+    return replacement[0].toUpperCase() + replacement.slice(1);
+  }
+  return replacement;
+}
+
+function neutralizeGender(text) {
+  const keys = Object.keys(GENDER_MAP).sort((a, b) => b.length - a.length);
+  const pattern = new RegExp('\\b(' + keys.join('|') + ')\\b', 'gi');
+  return text.replace(pattern, (match) => {
+    const replacement = GENDER_MAP[match.toLowerCase()];
+    return matchCase(match, replacement);
+  });
+}
+
+function sanitize(text) {
+  // Neutralize gender first, then redact names — this ensures gendered
+  // pronouns like "Hers"/"Himself" get converted before name detection runs.
+  return redactNames(neutralizeGender(text));
+}
+
 // GET /api/incidents - list all incidents (latest first)
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -73,10 +129,10 @@ export async function onRequestGet(context) {
   }
 
   const incidents = await getIncidents(env);
-  // Redact names in old incidents on read
+  // Sanitize old incidents on read (redact names + gender-neutralize)
   const redacted = incidents.map(inc => ({
     ...inc,
-    description: redactNames(inc.description)
+    description: sanitize(inc.description)
   }));
   return Response.json({ incidents: redacted });
 }
@@ -109,7 +165,7 @@ export async function onRequestPost(context) {
   incidents.unshift({
     id: crypto.randomUUID(),
     timestamp: Date.now(),
-    description: redactNames(description)
+    description: sanitize(description)
   });
 
   await saveIncidents(env, incidents);
